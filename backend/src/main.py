@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from src.config.database import Base,engine,Session
+from src.config.schema import upgrade as schema_upgrade
 from src.models import entities
 from src.routes.api import router
 from src.middlewares.audit import AuditMiddleware
@@ -12,6 +13,7 @@ from src.services.business import queue
 @asynccontextmanager
 async def lifespan(app):
     Base.metadata.create_all(engine)
+    schema_upgrade(engine)
     if os.getenv('SEED_DEMO','true').lower()=='true':
         try:
             from scripts.seed_demo import seed

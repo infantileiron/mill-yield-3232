@@ -1,11 +1,11 @@
-from fastapi import APIRouter,Depends
+from fastapi import APIRouter,Depends,HTTPException
 from sqlalchemy import select,func,text
 from src.config.database import get_db
 from src.controllers.auth import current,writable,admin,login
 from src.controllers.export import export_review
-from src.schemas.business import Login,BatchInput,InspectionInput,ReviewInput,ApprovalInput
-from src.models.entities import Batch,Inspection,Review,Audit
-from src.services import business
+from src.schemas.business import Login,BatchInput,InspectionInput,ReviewInput,ApprovalInput,CalibrationSheetInput
+from src.models.entities import Batch,Inspection,Review,Audit,CalibrationSheet,CalibrationRelease
+from src.services import business,calibration
 from src.utils.serialize import record
 router=APIRouter()
 @router.post('/auth/login')
@@ -31,6 +31,26 @@ def get_review(id:int,db=Depends(get_db),u=Depends(current)):return record(busin
 def approve(id:int,data:ApprovalInput,db=Depends(get_db),u=Depends(admin)):return business.approve(db,id,data.note,u)
 @router.get('/reviews/{id}/export')
 def export(id:int,db=Depends(get_db),u=Depends(current)):return export_review(business.review(db,id))
+@router.get('/calibrations')
+def get_calibrations(db=Depends(get_db),u=Depends(current)):return calibration.list_sheets(db)
+@router.post('/calibrations',status_code=201)
+def add_calibration(data:CalibrationSheetInput,db=Depends(get_db),u=Depends(writable)):
+    payload=data.model_dump();payload['points']=calibration.normalize_points(payload['points'])
+    payload['effective_from']=calibration.to_utc(payload['effective_from']);payload['effective_to']=calibration.to_utc(payload['effective_to'])
+    payload['status']='draft'
+    return business.create(db,CalibrationSheet,{**payload,'created_by':u.email})
+@router.post('/calibrations/{id}/publish')
+def publish_calibration(id:int,db=Depends(get_db),u=Depends(admin)):return calibration.publish(db,id,u)
+@router.get('/calibrations/{id}/preview')
+def preview_calibration(id:int,db=Depends(get_db),u=Depends(current)):return calibration.preview(db,id)
+@router.get('/calibration-releases')
+def get_calibration_releases(db=Depends(get_db),u=Depends(current)):
+    return [record(x) for x in db.scalars(select(CalibrationRelease).order_by(CalibrationRelease.version.desc()))]
+@router.get('/calibration-releases/{version}')
+def get_calibration_release(version:int,db=Depends(get_db),u=Depends(current)):
+    obj=db.scalar(select(CalibrationRelease).where(CalibrationRelease.version==version))
+    if not obj:raise HTTPException(404,'校准版本不存在')
+    return record(obj)
 @router.get('/audits')
 def audits(db=Depends(get_db),u=Depends(admin)):return [record(x) for x in db.scalars(select(Audit).order_by(Audit.id.desc()).limit(100))]
 @router.get('/counts')

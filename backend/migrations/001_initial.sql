@@ -2,3 +2,10 @@
 -- This migration documents the business keys used for idempotent demo seed.
 -- batches.code UNIQUE; inspections.sample_code UNIQUE; users.email UNIQUE.
 -- reviews stores immutable JSON snapshots, result checksum and approver identity.
+--
+-- Calibration extension (see src/config/schema.py for the idempotent DDL that
+-- upgrades existing volumes):
+-- calibration_sheets.code UNIQUE; calibration_releases.version UNIQUE.
+-- inspections.sampled_at + inspections.source record the raw instrument reading's
+-- provenance; reviews.calibration stores the complete calibration version that was
+-- in force when the diagnosis was accepted.

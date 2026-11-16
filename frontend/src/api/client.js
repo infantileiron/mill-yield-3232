@@ -1,7 +1,7 @@
 export async function api(path,options={}) {
  const token=localStorage.getItem('mill-token');
  const res=await fetch('/api'+path,{...options,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{}),...options.headers}});
- if(!res.ok){let d=await res.json().catch(()=>({detail:'网络响应异常'})); if(res.status===401&&path!='/auth/login'){localStorage.removeItem('mill-token');location.reload();} throw Error(typeof d.detail==='string'?d.detail:JSON.stringify(d.detail));}
+ if(!res.ok){let d=await res.json().catch(()=>({detail:'网络响应异常'})); if(res.status===401&&path!='/auth/login'){localStorage.removeItem('mill-token');location.reload();} const detail=d.detail; if(detail&&typeof detail==='object'&&detail.message){const err=Error(detail.message);err.payload=detail;throw err;} throw Error(typeof detail==='string'?detail:JSON.stringify(detail));}
  return res.json();
 }
 export const post=(path,data)=>api(path,{method:'POST',body:JSON.stringify(data)});
